@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Console Capture</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    header {
+      position: sticky; top: 0; z-index: 1;
+      display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+      padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--border);
+    }
+    header h1 { font-size: 15px; margin: 0 8px 0 0; }
+    #search { flex: 1 1 220px; min-width: 0; }
+    #search.invalid { outline: 2px solid var(--error); outline-offset: -1px; }
+    mark.hit { background: #4ade80; color: #062b14; border-radius: 2px; padding: 0 1px; }
+    dialog {
+      border: 1px solid var(--border); border-radius: 10px; background: var(--panel); color: var(--text);
+      max-width: 640px; width: 92%; padding: 18px;
+    }
+    dialog::backdrop { background: rgba(0, 0, 0, .5); }
+    dialog h2 { margin: 0 0 6px; font-size: 16px; }
+    dialog p { margin: 0 0 10px; }
+    #secretRegexInput {
+      width: 100%; box-sizing: border-box; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text);
+      resize: vertical;
+    }
+    #secretRegexInput.invalid { outline: 2px solid var(--error); outline-offset: -1px; }
+    #secretRegexErr { min-height: 18px; margin: 6px 0; font-size: 12px; }
+    #secretRegexErr.err { color: var(--error); }
+    #secretRegexErr.okmsg { color: #16a34a; }
+    .dlg-buttons { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+    .dlg-buttons .spacer { flex: 1; }
+    button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .searchbox { position: relative; flex: 1 1 200px; min-width: 120px; display: flex; }
+    #search { flex: 1; min-width: 0; padding-right: 34px; }
+    .rx-toggle {
+      position: absolute; right: 3px; top: 50%; transform: translateY(-50%);
+      padding: 2px 6px; font: 600 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      border-radius: 5px; border: 1px solid var(--border); background: var(--bg); color: var(--muted); cursor: pointer;
+    }
+    .rx-toggle[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    .menu { position: relative; }
+    .menu > summary {
+      list-style: none; cursor: pointer; user-select: none; white-space: nowrap;
+      padding: 5px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text);
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .menu > summary::-webkit-details-marker { display: none; }
+    .menu > summary::after { content: "▾"; font-size: 10px; color: var(--muted); }
+    #moreMenu > summary::after { content: ""; }
+    #moreMenu > summary { font-weight: 700; padding: 5px 10px; }
+    .menu[open] > summary { border-color: var(--accent); }
+    .menu-panel {
+      position: absolute; top: calc(100% + 4px); left: 0; z-index: 10; min-width: 200px;
+      background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, .25); padding: 8px;
+    }
+    .menu-panel.right { left: auto; right: 0; }
+    .badge {
+      background: var(--accent); color: #fff; border-radius: 999px; font-size: 10px;
+      padding: 0 6px; line-height: 16px; min-width: 16px; text-align: center;
+    }
+    .flt-title { font-size: 11px; color: var(--muted); text-transform: uppercase; margin: 2px 2px 6px; display: flex; justify-content: space-between; gap: 12px; }
+    .flt + .flt { border-top: 1px solid var(--border); margin-top: 8px; padding-top: 8px; }
+    .flt-actions a, .flt-link { color: var(--accent); cursor: pointer; text-decoration: none; }
+    .flt-actions a:hover, .flt-link:hover { text-decoration: underline; }
+    .flt-link { display: inline-block; margin-top: 8px; font-size: 12px; }
+    .checks { display: flex; flex-direction: column; gap: 1px; }
+    .check, .checks label {
+      display: flex; align-items: center; gap: 8px; cursor: pointer;
+      padding: 4px 6px; border-radius: 6px; white-space: nowrap;
+    }
+    .check:hover, .checks label:hover { background: var(--bg); }
+    .menu-item {
+      display: block; width: 100%; text-align: left; padding: 6px 8px; margin: 1px 0;
+      border: none; background: none; color: var(--text); border-radius: 6px; cursor: pointer; font: inherit;
+    }
+    .menu-item:hover { background: var(--bg); }
+    .menu-item.danger { color: var(--error); }
+    #host { max-width: 200px; }
+    .spacer { flex: 1; }
+    .tabs { display: flex; gap: 4px; margin-right: 6px; }
+    .tab { padding: 4px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg); cursor: pointer; }
+    .tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    #summary { padding: 8px 16px; }
+    #list, #surfaceList, #runtimeList, #allList { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+    .fn {
+      display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px;
+      padding: 7px 16px; border-bottom: 1px solid var(--border);
+      align-items: start;
+    }
+    .fn.hot { background: var(--warn-bg); }
+    .fn .sig { word-break: break-all; }
+    .fn .sig .path { color: var(--info); font-weight: 600; }
+    .fn .sig .args { color: var(--text); }
+    .fn .tags { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; align-items: center; }
+    .fn .tag { font-size: 10px; padding: 1px 6px; border-radius: 999px; background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn); white-space: nowrap; }
+    .fn .fnmeta { grid-column: 1 / -1; color: var(--muted); font-size: 11px; word-break: break-all; }
+    .fn .snip { grid-column: 1 / -1; color: var(--muted); font-size: 11px; white-space: pre-wrap; word-break: break-all; margin-top: 2px; }
+    .entry {
+      display: grid; grid-template-columns: 96px 62px minmax(0, 1fr); gap: 0 10px;
+      padding: 5px 16px; border-bottom: 1px solid var(--border);
+    }
+    .entry.warn { background: var(--warn-bg); }
+    .entry.error, .entry.network { background: var(--error-bg); }
+    .time { color: var(--muted); }
+    .msg { white-space: pre-wrap; word-break: break-word; max-height: 9em; overflow: hidden; cursor: pointer; }
+    .msg.open { max-height: none; }
+    .meta { grid-column: 3; color: var(--muted); font-size: 11px; word-break: break-all; }
+    details { grid-column: 3; }
+    details pre { margin: 4px 0 0; white-space: pre-wrap; word-break: break-all; color: var(--muted); }
+    #more { display: none; margin: 12px 16px 24px; }
+    #newPill {
+      position: fixed; top: 58px; left: 50%; transform: translateX(-50%); z-index: 5;
+      background: var(--accent); color: #fff; border: none; border-radius: 999px;
+      padding: 6px 16px; box-shadow: 0 2px 8px rgba(0,0,0,.25); cursor: pointer;
+    }
+    .rt {
+      display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 2px 10px;
+      padding: 7px 16px; border-bottom: 1px solid var(--border);
+      align-items: start;
+    }
+    .rt.secret { background: var(--error-bg); }
+    .rt .rtype { font-size: 10px; font-weight: 600; text-transform: uppercase; padding: 1px 7px; border-radius: 999px; align-self: start; white-space: nowrap; }
+    .rt-storage { background: #e0e7ff; color: #3730a3; }
+    .rt-global { background: #dcfce7; color: #166534; }
+    .rt-postmessage { background: #fef9c3; color: #854d0e; }
+    .rt-netcall { background: #ffedd5; color: #9a3412; }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) .rt-storage { background: #312e81; color: #c7d2fe; }
+      :root:not([data-theme="light"]) .rt-global { background: #14532d; color: #bbf7d0; }
+      :root:not([data-theme="light"]) .rt-postmessage { background: #422006; color: #fde68a; }
+      :root:not([data-theme="light"]) .rt-netcall { background: #431407; color: #fed7aa; }
+    }
+    .rt .rthead { word-break: break-all; }
+    .rt .rthead .rtname { font-weight: 600; }
+    .rt .tags { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; align-items: center; }
+    .rt .tag { font-size: 10px; padding: 1px 6px; border-radius: 999px; background: var(--error-bg); color: var(--error); border: 1px solid var(--error); white-space: nowrap; }
+    .rt .rtval { grid-column: 1 / -1; white-space: pre-wrap; word-break: break-all; color: var(--text); max-height: 8em; overflow: hidden; cursor: pointer; margin-top: 2px; }
+    .rt .rtval.open { max-height: none; }
+    .rt .rtmeta { grid-column: 1 / -1; color: var(--muted); font-size: 11px; word-break: break-all; }
+    @media (max-width: 640px) {
+      .entry { grid-template-columns: 1fr; }
+      .meta, details { grid-column: 1; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="tabs">
+      <button class="tab" id="tabAll" data-mode="all">Todos</button>
+      <button class="tab active" id="tabConsole" data-mode="console">Console</button>
+      <button class="tab" id="tabRuntime" data-mode="runtime">Runtime</button>
+      <button class="tab" id="tabSurface" data-mode="surface">Funções</button>
+    </div>
+
+    <div class="searchbox">
+      <input type="search" id="search" placeholder="Buscar…">
+      <button id="regex" class="rx-toggle" title="Interpretar a busca como expressão regular (regex)" aria-pressed="false">.*</button>
+    </div>
+
+    <details class="menu" id="filtersMenu">
+      <summary>Filtros<span id="filterBadge" class="badge" hidden></span></summary>
+      <div class="menu-panel">
+        <div class="flt" id="flt-all">
+          <div class="flt-title">Mostrar</div>
+          <div id="kinds" class="checks"></div>
+        </div>
+        <div class="flt" id="flt-console">
+          <div class="flt-title">Níveis <span class="flt-actions"><a id="lvlAll">todos</a> · <a id="lvlNone">nenhum</a></span></div>
+          <div id="levels" class="checks"></div>
+        </div>
+        <div class="flt" id="flt-runtime">
+          <div class="flt-title">Tipo</div>
+          <div id="rtTypes" class="checks"></div>
+          <label class="check"><input type="checkbox" id="secretsOnly"> só segredos</label>
+          <a id="editSecret" class="flt-link">Editar regex de segredos…</a>
+        </div>
+        <div class="flt" id="flt-surface">
+          <label class="check"><input type="checkbox" id="hotOnly"> só interessantes</label>
+        </div>
+      </div>
+    </details>
+
+    <select id="host" title="Filtrar por site"></select>
+
+    <span class="spacer"></span>
+
+    <details class="menu" id="exportMenu">
+      <summary>Exportar</summary>
+      <div class="menu-panel right">
+        <button class="menu-item" id="exportJson">JSON</button>
+        <button class="menu-item" id="exportText">.log (console)</button>
+        <button class="menu-item" id="exportCsv">CSV</button>
+      </div>
+    </details>
+
+    <details class="menu" id="moreMenu">
+      <summary title="Mais ações">⋯</summary>
+      <div class="menu-panel right">
+        <label class="check"><input type="checkbox" id="auto" checked> Atualizar sozinho (auto)</label>
+        <button class="menu-item" id="reload">Atualizar agora</button>
+        <button class="menu-item danger" id="clear">Limpar…</button>
+      </div>
+    </details>
+  </header>
+  <button id="newPill" style="display:none">novas entradas — carregar</button>
+  <div id="summary" class="muted"></div>
+  <div id="allList" style="display:none"></div>
+  <div id="list"></div>
+  <div id="surfaceList" style="display:none"></div>
+  <div id="runtimeList" style="display:none"></div>
+  <button id="more">Mostrar mais</button>
+
+  <dialog id="secretDlg">
+    <h2>Regex do filtro "só segredos"</h2>
+    <p class="muted">Uma expressão regular (flag <code>i</code>) aplicada ao texto de cada sinal de runtime. O que casar é marcado como segredo. É salvo e fica persistente.</p>
+    <textarea id="secretRegexInput" spellcheck="false" rows="8"></textarea>
+    <div id="secretRegexErr" class="muted"></div>
+    <div class="dlg-buttons">
+      <button id="secretRevert">Reverter ao original</button>
+      <span class="spacer"></span>
+      <button id="secretCancel">Cancelar</button>
+      <button id="secretSave" class="primary">Salvar</button>
+    </div>
+  </dialog>
+
+  <script src="db.js"></script>
+  <script src="viewer.js"></script>
+</body>
+</html>

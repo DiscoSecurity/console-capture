@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Console Capture</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { width: 280px; padding: 14px; }
+    h1 { font-size: 15px; margin: 0 0 10px; }
+    label { display: flex; gap: 8px; align-items: center; margin: 6px 0; }
+    .count { margin: 12px 0; font-size: 22px; font-weight: 600; }
+    .row { display: flex; gap: 8px; }
+    .row button { flex: 1; }
+    #perm { display: none; padding: 8px; margin-bottom: 10px; border-radius: 6px; background: var(--warn-bg); color: var(--warn); }
+    .note { font-size: 11px; margin: -2px 0 6px 24px; }
+    #perm button { margin-top: 6px; width: 100%; }
+
+    /* Sliding toggle for the main recording switch (stands apart from the plain checkboxes). */
+    .switch-row { display: flex; align-items: center; gap: 10px; margin: 2px 0 12px; }
+    .switch { position: relative; display: inline-block; width: 44px; height: 24px; flex: none; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; inset: 0; background: var(--border); border-radius: 999px; transition: .2s; }
+    .slider::before { content: ""; position: absolute; height: 18px; width: 18px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .2s; }
+    .switch input:checked + .slider { background: #16a34a; }
+    .switch input:checked + .slider::before { transform: translateX(20px); }
+    .switch input:focus-visible + .slider { outline: 2px solid var(--accent); outline-offset: 2px; }
+    #enabledLabel { font-size: 15px; font-weight: 600; }
+    #enabledLabel.on { color: #16a34a; }
+    #enabledLabel.off { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <h1>Console Capture</h1>
+  <div id="perm">
+    Sem permissão para ler os sites — nada será gravado.
+    <button id="grant">Conceder acesso a todos os sites</button>
+  </div>
+  <div class="switch-row">
+    <label class="switch">
+      <input type="checkbox" id="enabled">
+      <span class="slider"></span>
+    </label>
+    <span id="enabledLabel">Gravando</span>
+  </div>
+  <label><input type="checkbox" id="captureNetwork"> Incluir erros de rede (4xx/5xx, falhas)</label>
+  <label><input type="checkbox" id="captureSurface"> Mapear funções JS expostas (superfície)</label>
+  <div class="muted note">Cataloga funções que a página deixa acessíveis no console (ex.: <code>app.api.fetch(url)</code>), por host. Não executa nada — só lista.</div>
+  <label><input type="checkbox" id="captureRuntime"> Capturar runtime (storage, estado global, postMessage, rede)</label>
+  <div class="muted note">Salva localStorage/sessionStorage/cookies, objetos de config/estado global, mensagens postMessage e chamadas fetch/XHR/WebSocket. Marca o que parecer segredo (JWT/API key/token).</div>
+  <div class="count"><span id="count">…</span> <span class="muted" style="font-size:13px;font-weight:400">entradas salvas</span>
+    <div id="usage" class="muted" style="font-size:12px;font-weight:400"></div></div>
+  <div class="row">
+    <button id="open">Abrir visualizador</button>
+    <button id="clear" class="danger">Limpar</button>
+  </div>
+  <script src="db.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
