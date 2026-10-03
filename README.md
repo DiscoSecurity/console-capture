@@ -2,6 +2,8 @@
 
 A browser extension for **Chrome** and **Firefox** (same codebase, Manifest V3) that silently records everything happening in a page's JavaScript context while you browse, so you can analyze it later. Built for **security research and bug bounty hunting**.
 
+> **Hunting bugs with us?** Join the community for daily writeups, payloads, recon tricks and more tools like this: **[linkme.bio/DISCOsecurity](https://linkme.bio/DISCOsecurity)**
+
 ---
 
 ## What it captures
