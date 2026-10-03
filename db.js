@@ -7,7 +7,7 @@ const ConsoleDB = (() => {
   let dbPromise;
 
   const open = () => (dbPromise ??= new Promise((resolve, reject) => {
-    const req = indexedDB.open(NAME, 3);
+    const req = indexedDB.open(NAME, 4);
     req.onupgradeneeded = (e) => {
       const db = req.result;
       if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
@@ -65,13 +65,30 @@ const ConsoleDB = (() => {
     return done(tx);
   }
 
-  // Upsert surface records, merging over any existing row (keeps a resolved source location).
+  // Upsert surface records. Tracks change history (last 5 snapshots) when snippet or params change.
   async function surfacePut(items) {
     const tx = (await open()).transaction(SURFACE, 'readwrite');
     const store = tx.objectStore(SURFACE);
     for (const it of items) {
       const prev = await result(store.get(it.key)).catch(() => null);
-      store.put(prev ? { ...prev, ...it, source: it.source || prev.source } : it);
+      if (prev) {
+        const changed = prev.snippet !== it.snippet
+                     || JSON.stringify(prev.params) !== JSON.stringify(it.params);
+        const history = Array.isArray(prev.history) ? prev.history : [];
+        if (changed) {
+          history.unshift({ ts: prev.ts, snippet: prev.snippet, params: prev.params, source: prev.source });
+          if (history.length > 5) history.length = 5;
+        }
+        store.put({
+          ...prev, ...it,
+          source: it.source || prev.source,
+          scriptOrigin: it.scriptOrigin || prev.scriptOrigin || '',
+          firstSeen: prev.firstSeen || prev.ts || Date.now(),
+          history,
+        });
+      } else {
+        store.put({ ...it, history: [], scriptOrigin: it.scriptOrigin || '', firstSeen: it.ts || Date.now() });
+      }
     }
     return done(tx);
   }

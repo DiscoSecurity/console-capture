@@ -3,7 +3,7 @@ if (typeof importScripts === 'function') importScripts('db.js');
 
 const api = globalThis.browser ?? globalThis.chrome;
 // maxEntries 0 = keep everything forever.
-const DEFAULTS = { enabled: true, captureNetwork: true, captureSurface: true, captureRuntime: true, maxEntries: 0 };
+const DEFAULTS = { enabled: true, captureNetwork: true, captureSurface: true, captureRuntime: true, captureTaint: true, maxEntries: 0, taintWordlist: ['canxpixo'], enabledSinks: null, taintMaxValues: 0, taintMinLen: 2 };
 const LEVELS = new Set(['log', 'info', 'warn', 'error', 'debug', 'trace', 'network']);
 const PRUNE_EVERY = 1000;
 
@@ -69,7 +69,10 @@ function normalizeSurface(it, ctx) {
     native: !!it.native,
     interesting: !!it.interesting,
     reasons: Array.isArray(it.reasons) ? it.reasons.slice(0, 12).map((r) => str(r, 80)) : [],
-    snippet: str(it.snippet, 400),
+    snippet: str(it.snippet, 2500),
+    scriptOrigin: str(it.scriptOrigin, 500),
+    sweepReason: str(it.sweepReason, 30),
+    loadedScripts: Array.isArray(ctx.loadedScripts) ? ctx.loadedScripts.map((u) => str(u, 300)) : [],
     source: '',
     pageUrl: ctx.pageUrl,
     frameUrl: ctx.frameUrl,
@@ -93,6 +96,7 @@ api.runtime.onMessage.addListener((msg, sender) => {
     pageUrl,
     frameUrl: str(msg.frameUrl, 2000) || sender.url || '',
     host: hostOf(pageUrl),
+    loadedScripts: Array.isArray(msg.loadedScripts) ? msg.loadedScripts : [],
   };
   storeSurface(msg.items, ctx).catch((err) => console.error('console-capture:', err));
 });
@@ -104,6 +108,7 @@ function runtimeKey(it, host) {
     case 'global': return `${host}\nglobal\n${it.name}`;
     case 'postmessage': return `${host}\npm\n${it.dir}\n${it.origin}\n${hashStr(it.value)}`;
     case 'netcall': return `${host}\nnet\n${it.method}\n${it.url}`;
+    case 'taint': return `${host}\ntaint\n${it.sink || ''}\n${hashStr(it.taintedValue || '')}\n${hashStr(it.source || '')}`;
     default: return `${host}\n?\n${hashStr(it.value || '')}`;
   }
 }
@@ -115,7 +120,7 @@ function hashStr(s) {
   return (h >>> 0).toString(36);
 }
 
-const RUNTIME_TYPES = new Set(['storage', 'global', 'postmessage', 'netcall']);
+const RUNTIME_TYPES = new Set(['storage', 'global', 'postmessage', 'netcall', 'taint']);
 
 function normalizeRuntime(it, ctx) {
   const type = RUNTIME_TYPES.has(it.type) ? it.type : 'other';
@@ -132,6 +137,9 @@ function normalizeRuntime(it, ctx) {
     source: str(it.source, 2000),
     value: str(it.value, 40000),
     secret: Array.isArray(it.secret) ? it.secret.slice(0, 10).map((s) => str(s, 40)) : [],
+    sink: str(it.sink, 100),
+    taintedValue: str(it.taintedValue, 200),
+    stack: str(it.stack, 20000) || undefined,
     frameUrl: str(it.frameUrl, 2000) || ctx.frameUrl || '',
     pageUrl: ctx.pageUrl,
     host: ctx.host,
@@ -140,16 +148,29 @@ function normalizeRuntime(it, ctx) {
 }
 
 async function storeRuntime(items, ctx) {
-  const { enabled, captureRuntime } = await getSettings();
-  if (!enabled || !captureRuntime || !items.length) return;
-  await ConsoleDB.runtimePut(items.map((it) => normalizeRuntime(it, ctx)));
+  const { enabled, captureRuntime, captureTaint } = await getSettings();
+  if (!enabled || !items.length) return;
+  const filtered = items.filter((it) => it.type === 'taint' ? captureTaint : captureRuntime);
+  if (!filtered.length) return;
+  await ConsoleDB.runtimePut(filtered.map((it) => normalizeRuntime(it, ctx)));
 }
 
 api.runtime.onMessage.addListener((msg, sender) => {
   if (msg?.type !== 'console-capture:runtime' || !Array.isArray(msg.items)) return;
+  // taint-words: update storage with current tracked words, do not store in DB
+  const wordItems = msg.items.filter((it) => it.type === 'taint-words');
+  if (wordItems.length) {
+    try {
+      const latest = wordItems[wordItems.length - 1];
+      const words = JSON.parse(latest.value || '[]');
+      if (Array.isArray(words)) api.storage.local.set({ taintCaptured: words }).catch(() => {});
+    } catch {}
+  }
+  const regularItems = msg.items.filter((it) => it.type !== 'taint-words');
+  if (!regularItems.length) return;
   const pageUrl = sender.tab?.url || sender.url || '';
   const ctx = { tabId: sender.tab?.id ?? -1, pageUrl, frameUrl: sender.url || '', host: hostOf(pageUrl) };
-  storeRuntime(msg.items, ctx).catch((err) => console.error('console-capture:', err));
+  storeRuntime(regularItems, ctx).catch((err) => console.error('console-capture:', err));
 });
 
 // Failed requests (404, CORS, DNS...) are logged by the browser itself, not by page JS,
@@ -196,3 +217,10 @@ api.storage.onChanged.addListener((changes, area) => {
 api.runtime.onStartup.addListener(() => updateBadge().catch(() => {}));
 api.runtime.onInstalled.addListener(() => updateBadge().catch(() => {}));
 updateBadge().catch(() => {});
+
+// Seed default canary words if the list is still empty (covers existing installs).
+api.storage.local.get({ taintWordlist: null }).then(({ taintWordlist }) => {
+  if (!Array.isArray(taintWordlist) || taintWordlist.length === 0) {
+    api.storage.local.set({ taintWordlist: DEFAULTS.taintWordlist }).catch(() => {});
+  }
+}).catch(() => {});

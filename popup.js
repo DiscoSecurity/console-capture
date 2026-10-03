@@ -10,8 +10,8 @@ async function refreshCount() {
 }
 
 async function init() {
-  const settings = await api.storage.local.get({ enabled: true, captureNetwork: true, captureSurface: true, captureRuntime: true });
-  for (const key of ['enabled', 'captureNetwork', 'captureSurface', 'captureRuntime']) {
+  const settings = await api.storage.local.get({ enabled: true, captureNetwork: true, captureSurface: true, captureRuntime: true, captureTaint: true });
+  for (const key of ['enabled', 'captureNetwork', 'captureSurface', 'captureRuntime', 'captureTaint']) {
     $(key).checked = settings[key];
     $(key).addEventListener('change', () => api.storage.local.set({ [key]: $(key).checked }));
   }

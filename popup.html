@@ -47,6 +47,8 @@
   <div class="muted note">Cataloga funções que a página deixa acessíveis no console (ex.: <code>app.api.fetch(url)</code>), por host. Não executa nada — só lista.</div>
   <label><input type="checkbox" id="captureRuntime"> Capturar runtime (storage, estado global, postMessage, rede)</label>
   <div class="muted note">Salva localStorage/sessionStorage/cookies, objetos de config/estado global, mensagens postMessage e chamadas fetch/XHR/WebSocket. Marca o que parecer segredo (JWT/API key/token).</div>
+  <label><input type="checkbox" id="captureTaint"> Taint tracking (input → sink)</label>
+  <div class="muted note">Monitora o que você digita nos campos da página e detecta quando esse valor chega a um sink perigoso: <code>innerHTML</code>, <code>eval</code>, <code>fetch</code>, <code>location</code>, etc.</div>
   <div class="count"><span id="count">…</span> <span class="muted" style="font-size:13px;font-weight:400">entradas salvas</span>
     <div id="usage" class="muted" style="font-size:12px;font-weight:400"></div></div>
   <div class="row">

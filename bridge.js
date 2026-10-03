@@ -7,6 +7,7 @@
   const HELLO = 'console-capture:hello';
   const READY = 'console-capture:ready';
   const CONFIG = 'console-capture:config';
+  const TAINT_STATE = 'console-capture:taint-state';
   const FLUSH_MS = 300;
   const MAX_BATCH = 200;
 
@@ -45,7 +46,7 @@
     let msg;
     try { msg = JSON.parse(e.detail); } catch { return; }
     if (!msg || !Array.isArray(msg.items)) return;
-    try { api.runtime.sendMessage({ type: 'console-capture:surface', items: msg.items, frameUrl: msg.frameUrl })?.catch?.(dead); } catch { /* dead */ }
+    try { api.runtime.sendMessage({ type: 'console-capture:surface', items: msg.items, frameUrl: msg.frameUrl, loadedScripts: Array.isArray(msg.loadedScripts) ? msg.loadedScripts : [] })?.catch?.(dead); } catch { /* dead */ }
   });
 
   document.addEventListener(RUNTIME, (e) => {
@@ -57,7 +58,7 @@
   });
 
   // Hand the page world its config (captureSurface/captureRuntime) and push later changes.
-  const CONFIG_KEYS = { captureSurface: true, captureRuntime: true };
+  const CONFIG_KEYS = { captureSurface: true, captureRuntime: true, captureTaint: true, taintWordlist: ['canxpixo'], enabledSinks: null, taintMaxValues: 0, taintMinLen: 2, taintState: { values: [] } };
   async function currentConfig() {
     try { return await api.storage.local.get(CONFIG_KEYS); } catch { return CONFIG_KEYS; }
   }
@@ -65,8 +66,24 @@
     try { document.dispatchEvent(new CustomEvent(CONFIG, { detail: JSON.stringify(config) })); } catch {}
   }
   api.storage?.onChanged?.addListener((changes, area) => {
-    if (area === 'local' && ('captureSurface' in changes || 'captureRuntime' in changes)) currentConfig().then(pushConfig);
+    if (area === 'local' && ('captureSurface' in changes || 'captureRuntime' in changes || 'captureTaint' in changes || 'taintWordlist' in changes || 'enabledSinks' in changes || 'taintMaxValues' in changes || 'taintMinLen' in changes)) currentConfig().then(pushConfig);
   });
+
+  // Taint state: save live taintValues snapshot from inject.js directly to storage
+  document.addEventListener(TAINT_STATE, (e) => {
+    let msg; try { msg = JSON.parse(e.detail); } catch { return; }
+    try { api.storage.local.set({ taintState: msg }); } catch {}
+  });
+
+  // Viewer can ask the active tab to re-emit taint state (e.g. on manual refresh).
+  const REQUEST_TAINT = 'console-capture:request-taint-state';
+  try {
+    api.runtime.onMessage.addListener((msg) => {
+      if (msg?.type === REQUEST_TAINT) {
+        document.dispatchEvent(new CustomEvent(REQUEST_TAINT));
+      }
+    });
+  } catch {}
 
   // Handshake works whichever script runs first; READY carries the initial config.
   async function announce() {

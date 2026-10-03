@@ -113,6 +113,12 @@
     .meta { grid-column: 3; color: var(--muted); font-size: 11px; word-break: break-all; }
     details { grid-column: 3; }
     details pre { margin: 4px 0 0; white-space: pre-wrap; word-break: break-all; color: var(--muted); }
+    .stack-annotated { margin: 4px 0 0; }
+    .stack-frame { display: flex; gap: 6px; align-items: baseline; line-height: 1.5; white-space: pre-wrap; word-break: break-all; color: var(--muted); font-size: 11px; }
+    .stack-frame.stack-top { color: var(--fg); font-weight: 600; }
+    .stack-arrow { flex-shrink: 0; font-size: 10px; color: #22c55e; user-select: none; min-width: 12px; text-align: center; }
+    .stack-frame.stack-top .stack-arrow { color: #ef4444; }
+    .stack-hint { font-size: 10px; margin-top: 4px; font-style: italic; }
     #more { display: none; margin: 12px 16px 24px; }
     #newPill {
       position: fixed; top: 58px; left: 50%; transform: translateX(-50%); z-index: 5;
@@ -130,12 +136,69 @@
     .rt-global { background: #dcfce7; color: #166534; }
     .rt-postmessage { background: #fef9c3; color: #854d0e; }
     .rt-netcall { background: #ffedd5; color: #9a3412; }
+    .rt-taint { background: #fee2e2; color: #991b1b; }
+    .rt.taint-row { border-left: 3px solid var(--error); }
+    .taint-val { font-weight: 600; color: var(--error); word-break: break-all; }
     @media (prefers-color-scheme: dark) {
       :root:not([data-theme="light"]) .rt-storage { background: #312e81; color: #c7d2fe; }
       :root:not([data-theme="light"]) .rt-global { background: #14532d; color: #bbf7d0; }
       :root:not([data-theme="light"]) .rt-postmessage { background: #422006; color: #fde68a; }
       :root:not([data-theme="light"]) .rt-netcall { background: #431407; color: #fed7aa; }
+      :root:not([data-theme="light"]) .rt-taint { background: #450a0a; color: #fca5a5; }
     }
+    /* Taint monitor bar */
+    #taintMonitorBar {
+      padding: 7px 16px; background: var(--panel); border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px;
+    }
+    .taint-bar-row2 {
+      width: 100%; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+      padding-top: 4px; border-top: 1px dashed var(--border); margin-top: 2px;
+    }
+    .taint-word-tag {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: var(--error-bg); color: var(--error); border: 1px solid var(--error);
+      border-radius: 999px; padding: 1px 10px; font-size: 11px; white-space: nowrap;
+    }
+    /* custom words (canxpixo etc.) keep the default red */
+    /* captured from inputs: teal/cyan */
+    .taint-word-tag.captured {
+      background: #ecfeff; color: #155e75; border-color: #0891b2;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) .taint-word-tag.captured { background: #083344; color: #a5f3fc; border-color: #0891b2; }
+    }
+    .taint-bar-more {
+      font-size: 11px; color: var(--accent); cursor: pointer; white-space: nowrap;
+      text-decoration: underline; text-underline-offset: 2px;
+    }
+    .taint-bar-btn {
+      padding: 3px 10px; font-size: 11px; border: 1px solid var(--border);
+      border-radius: 6px; background: var(--bg); cursor: pointer; color: var(--text); white-space: nowrap;
+    }
+    .taint-bar-btn:hover { border-color: var(--accent); color: var(--accent); }
+    /* Sinks dialog */
+    .sink-group { margin-bottom: 12px; }
+    .sink-group h4 { font-size: 10px; font-weight: 600; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; letter-spacing: .04em; }
+    .sink-checks { display: flex; flex-wrap: wrap; gap: 4px; }
+    .sink-checks label {
+      display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px;
+      cursor: pointer; font-size: 11px; border: 1px solid var(--border); background: var(--bg);
+      white-space: nowrap; user-select: none;
+    }
+    .sink-checks label:hover { border-color: var(--accent); }
+    .sink-checks label.disabled-sink { opacity: .5; }
+    /* taint custom words list */
+    .taint-custom-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; font-size: 12px; }
+    .taint-custom-row button { border: none; background: none; cursor: pointer; color: var(--error); padding: 0 4px; font-size: 14px; line-height: 1; }
+    /* Function detail dialog */
+    #fnDetailContent { max-height: 70vh; overflow-y: auto; }
+    .fn-detail-section { margin-bottom: 14px; }
+    .fn-detail-section h3 { font-size: 11px; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; letter-spacing: .04em; }
+    .fn-detail-meta { font-size: 12px; margin: 2px 0; word-break: break-all; }
+    .fn-detail-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; white-space: pre-wrap; word-break: break-all; background: var(--bg); border-radius: 6px; padding: 8px; max-height: 220px; overflow-y: auto; margin: 0; }
+    .fn-history-entry { border-left: 2px solid var(--border); padding: 4px 0 4px 10px; margin-bottom: 8px; font-size: 11px; color: var(--muted); }
+    .fn-history-entry pre { margin: 4px 0 0; }
     .rt .rthead { word-break: break-all; }
     .rt .rthead .rtname { font-weight: 600; }
     .rt .tags { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; align-items: center; }
@@ -156,6 +219,7 @@
       <button class="tab active" id="tabConsole" data-mode="console">Console</button>
       <button class="tab" id="tabRuntime" data-mode="runtime">Runtime</button>
       <button class="tab" id="tabSurface" data-mode="surface">Funções</button>
+      <button class="tab" id="tabTaint" data-mode="taint">Taint</button>
     </div>
 
     <div class="searchbox">
@@ -182,6 +246,11 @@
         </div>
         <div class="flt" id="flt-surface">
           <label class="check"><input type="checkbox" id="hotOnly"> só interessantes</label>
+          <label class="check"><input type="checkbox" id="searchSnippet"> buscar no código (snippet)</label>
+        </div>
+        <div class="flt" id="flt-taint">
+          <a id="editTaintWordsMenu" class="flt-link">Editar palavras monitoradas…</a>
+          <a id="editTaintSinksMenu" class="flt-link">Configurar sinks…</a>
         </div>
       </div>
     </details>
@@ -209,12 +278,20 @@
     </details>
   </header>
   <button id="newPill" style="display:none">novas entradas — carregar</button>
+  <div id="taintMonitorBar" style="display:none"></div>
   <div id="summary" class="muted"></div>
   <div id="allList" style="display:none"></div>
   <div id="list"></div>
   <div id="surfaceList" style="display:none"></div>
   <div id="runtimeList" style="display:none"></div>
+  <div id="taintList" style="display:none"></div>
   <button id="more">Mostrar mais</button>
+
+  <dialog id="taintDetailDlg" style="max-width:680px;width:96vw">
+    <h2 id="taintDetailTitle">Hit de taint</h2>
+    <div id="taintDetailContent" style="max-height:72vh;overflow-y:auto"></div>
+    <div class="dlg-buttons"><span class="spacer"></span><button id="taintDetailClose">Fechar</button></div>
+  </dialog>
 
   <dialog id="secretDlg">
     <h2>Regex do filtro "só segredos"</h2>
@@ -226,6 +303,44 @@
       <span class="spacer"></span>
       <button id="secretCancel">Cancelar</button>
       <button id="secretSave" class="primary">Salvar</button>
+    </div>
+  </dialog>
+
+  <dialog id="taintWordsDlg" style="max-width:480px;width:94vw">
+    <h2>Palavras monitoradas</h2>
+    <div class="fn-detail-section">
+      <h3>Capturadas dos inputs da página</h3>
+      <div id="taintCapturedList" class="muted" style="font-size:12px;line-height:1.9;word-break:break-all;max-height:140px;overflow-y:auto"></div>
+    </div>
+    <div class="fn-detail-section">
+      <h3>Personalizadas (sempre monitoradas)</h3>
+      <div id="taintCustomList" style="max-height:220px;overflow-y:auto"></div>
+      <div style="display:flex;gap:8px;margin-top:10px;align-items:center">
+        <input type="text" id="taintWordInput" placeholder="adicionar palavra (mín. 3 chars)…" style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font:inherit;font-size:12px">
+        <button id="taintWordAdd">Adicionar</button>
+      </div>
+      <p class="muted" style="font-size:11px;margin:6px 0 0">Ignore case · mín. 3 caracteres · salvo automaticamente.</p>
+    </div>
+    <div class="dlg-buttons"><span class="spacer"></span><button id="taintWordsClose">Fechar</button></div>
+  </dialog>
+
+  <dialog id="taintSinksDlg" style="max-width:700px">
+    <h2>Sinks monitorados</h2>
+    <p class="muted" style="font-size:12px;margin:0 0 12px">Desative sinks que causem ruído na página. Clique em "Reverter" para reativar todos.</p>
+    <div id="taintSinksList" style="max-height:62vh;overflow-y:auto"></div>
+    <div class="dlg-buttons" style="margin-top:14px">
+      <button id="taintSinksRevert">Reverter ao padrão (tudo ativo)</button>
+      <span class="spacer"></span>
+      <button id="taintSinksClose">Fechar</button>
+    </div>
+  </dialog>
+
+  <dialog id="fnDetailDlg">
+    <h2 id="fnDetailTitle" style="margin:0 0 12px;font-size:15px;word-break:break-all"></h2>
+    <div id="fnDetailContent"></div>
+    <div class="dlg-buttons" style="margin-top:14px">
+      <span class="spacer"></span>
+      <button id="fnDetailClose">Fechar</button>
     </div>
   </dialog>
 
